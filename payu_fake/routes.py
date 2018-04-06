@@ -34,7 +34,6 @@ def setup(app):
     url = app.router
 
     url.add_post('/order/alu/v3', alu)
-    url.add_post('/acs', acs)
     # url.add_post('/order/idn.php', idn)
     # url.add_post('/order/irn.php', irn)
     url.add_get('/', omg)
