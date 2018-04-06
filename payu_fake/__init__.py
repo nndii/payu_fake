@@ -32,7 +32,7 @@ def create_app() -> web.Application:
     app = web.Application()
     setup(app)
 
-    app['IPN_URL'] = os.environ['CHECK_URL']
+    app['IPN_URL'] = os.environ['IPN_URL']
     app['TC_PREFIX'] = os.environ['TC_PREFIX']
     app['SECRET'] = os.environ['PAYU_SECRET']
     app['TRANSACTION_DB'] = dict()
