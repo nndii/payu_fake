@@ -2,9 +2,10 @@ import typing
 
 from aiohttp import web
 
-from payu_fake.client import post3ds
+from payu_fake.client import post3ds, ipn
 from payu_fake.resources import Transaction, Status, ReturnCode
 from payu_fake.utils import generate_id, check_hmac
+from payu_fake.resources import IPN
 
 
 async def process_alu(request: web.Request) -> \
@@ -14,10 +15,12 @@ async def process_alu(request: web.Request) -> \
     print(f'ALU <-\n{params}')
     ref_id = generate_id(request)
     if not await check_hmac(params, secret):
+        print(f'HMAC SECRET {secret}')
+        print(f'ALU ->\nHMAC ERROR')
         return None, Status.error, ReturnCode.some_error
 
     transaction = Transaction(
-        ref_no=ref_id,
+        ref_no=str(ref_id),
         alias=str(ref_id),
         merchant=params.get('MERCHANT'),
         order_ref=params.get('ORDER_REF'),
@@ -34,15 +37,18 @@ async def process_alu(request: web.Request) -> \
         bill_email=params.get('BILL_EMAIL'),
         bill_phone=params.get('BILL_PHONE'),
         bill_countrycode=params.get('BILL_COUNTRYCODE'),
+        exp_month=params.get('EXP_MONTH'),
+        exp_year=params.get('EXP_YEAR'),
         cc_number=params.get('CC_NUMBER'),
         cc_owner=params.get('CC_OWNER'),
         cc_cvv=params.get('CC_CVV'),
         client_ip=params.get('CLIENT_IP'),
-        test_order=params.get('TESTORDER')
+        test_order=params.get('TESTORDER'),
+        status=IPN.executed
     )
 
-    request.app[transaction.ref_no] = transaction
-    _3ds = True if transaction.cc_number.endswith('33') else False
+    request.app['t_db'][transaction.order_ref] = transaction
+    _3ds = True if transaction.cc_owner.endswith('33') else False
 
     if _3ds:
         response = await transaction.xmlify(
@@ -50,13 +56,52 @@ async def process_alu(request: web.Request) -> \
             _3ds=True, _3ds_url=request.app['3ds_url']
         )
         request.app['3ds'].put(transaction)
+        print(f'ALU -> {response}')
         return response, Status.success, ReturnCode.need3ds
     else:
+        if params.get('EXP_YEAR') != '2023':
+            status, return_code = Status.success, ReturnCode.success
+        else:
+            status, return_code = Status.success, ReturnCode.authorized
+
         response = await transaction.xmlify(
-            secret, Status.success, ReturnCode.authorized
+            secret, status, return_code
         )
-        return response, Status.success, ReturnCode.authorized
+        print(f'ALU -> {response}')
+        return response, status, return_code
 
 
 async def process_3ds(app: web.Application, transaction: Transaction):
     await post3ds(app['TC_PREFIX'], transaction)
+    app['ipn'].put(transaction.replace(status=IPN.finish))
+
+
+async def process_ipn(app: web.Application, transaction: Transaction):
+    await ipn(transaction, app)
+
+
+async def process_idn(request: web.Request) -> \
+    typing.Tuple[typing.Union[str, None], Status, ReturnCode]:
+
+    params = await request.post()
+    secret = request.app['SECRET']
+    print(f'IDN <-\n{params}')
+    if not await check_hmac(params, secret):
+        print(f'HMAC SECRET {secret}')
+        print(f'IDN ->\nHMAC ERROR')
+        return None, Status.error, ReturnCode.some_error
+
+    try:
+        transaction = request.app['t_db'][params.get('ORDER_REF')]
+    except KeyError:
+        return None, Status.error, ReturnCode.some_error
+
+    response = await transaction.xmlify_inline(
+        secret, Status.success, ReturnCode.success
+    )
+    print(f'IDN -> {response}')
+    request.app['ipn'].put(transaction.replace(status=IPN.finish))
+    return response, Status.success, ReturnCode.success
+
+
+
