@@ -8,8 +8,9 @@ from payu_fake.utils import calc_hash
 
 
 class IPN(Enum):
-    finish = 'COMPLETED'
+    finish = 'COMPLETE'
     pre_finish = 'PAYMENT_AUTHORIZED'
+    executed = 'EXECUTED'
     refund = 'REFUND'
     reversed = 'REVERSED'
 
@@ -28,7 +29,7 @@ class Status(Enum):
 
 
 class Transaction(NamedTuple):
-    ref_no: int
+    ref_no: str
     alias: str
     merchant: str
     order_ref: str
@@ -51,20 +52,24 @@ class Transaction(NamedTuple):
     cc_cvv: str
     client_ip: str
     test_order: str
+    status: IPN
     pay_method: str = 'CCVISAMC'
 
+    def replace(self, **kwargs):
+        return self._replace(**kwargs)
+
     async def xmlify(
-            self, secret: str, status: Status,
+            self, secret: str, _status: Status,
             _return_code: ReturnCode, _3ds: bool = False,
             _3ds_url: str = '') -> str:
         # O M G
         root = xml.Element('EPAYMENT')
         ref_no = xml.SubElement(root, 'REFNO')
-        ref_no.text = '' if status == Status.error else self.ref_no
+        ref_no.text = '' if _status == Status.error else self.ref_no
         alias = xml.SubElement(root, 'ALIAS')
         alias.text = str(ref_no.text)
         status = xml.SubElement(root, 'STATUS')
-        status.text = status.value
+        status.text = _status.value
         return_code = xml.SubElement(root, 'RETURN_CODE')
         return_code.text = _return_code.value
         return_message = xml.SubElement(root, 'RETURN_MESSAGE')
@@ -87,6 +92,27 @@ class Transaction(NamedTuple):
 
         tree = xml.ElementTree(root)
 
-        xml_string = StringIO()
-        tree.write(xml_string)
-        return xml_string.getvalue()
+        # xml_string = StringIO()
+        # tree.write(xml_string)
+        return xml.tostring(root).decode()
+
+    async def xmlify_inline(
+            self, secret: str, _status: Status,
+            _return_code: ReturnCode, _3ds: bool = False,
+            _3ds_url: str = '') -> str:
+        # O M G
+        data = {
+            'ORDER_REF': self.order_ref,
+            'RESPONSE_CODE': 1,
+            'RESPONSE_MSG': 'OMG',
+            'IDN_DATE': datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        _hash = await calc_hash(data, secret)
+
+        root = xml.Element('EPAYMENT')
+        root.text = (f"{data['ORDER_REF']}|"
+                     f"{data['RESPONSE_CODE']}|"
+                     f"{data['RESPONSE_MSG']}|"
+                     f"{data['IDN_DATE']}|"
+                     f"{_hash}")
+        return xml.tostring(root).decode()
