@@ -10,7 +10,8 @@ from payu_fake.resources import Transaction
 async def _make_request(url: str, data: dict = None):
     if data is None:
         data = {}
-    requests.post(url, data=data)
+    resp = requests.post(url, data=data)
+    print(f'TC RESP <- {resp.text}')
 
 
 async def post3ds(prefix: str, transaction: Transaction):
@@ -18,15 +19,19 @@ async def post3ds(prefix: str, transaction: Transaction):
     await _make_request(url)
 
 
-async def ipn(transaction: Transaction, request: web.Request, status: IPN = IPN.finish):
-    url = urljoin(request.app['TC_PREFIX'], request.app['IPN_URL'])
+async def ipn(transaction: Transaction, app: web.Application):
+    url = urljoin(app['TC_PREFIX'], app['IPN_URL'])
     data = {
         'SALEDATE': '12312312',
         'COMPLETE_DATE': 'asdasd',
         'REFNO': transaction.ref_no,
         'REFNOEXT': transaction.order_ref,
         'ORDERNO': 123123123,
-        'ORDERSTATUS': status.value,
-        'PAYMETHOD': 'OLOLO'
+        'ORDERSTATUS': transaction.status.value,
+        'PAYMETHOD': 'OLOLO',
+        'IPN_PID[]': 'OMG',
+        'IPN_PNAME[]': 'ticket',
+        'IPN_DATE': '1231231245'
     }
+    print(f'IPN -> {data}')
     await _make_request(url, data=data)
