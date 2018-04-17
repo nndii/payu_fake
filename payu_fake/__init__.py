@@ -51,6 +51,7 @@ def create_app() -> web.Application:
     app['t_db'] = dict()
     app['3ds'] = Queue()
     app['ipn'] = Queue()
+    app['finish'] = dict()
 
     app.on_startup.append(start_bg_tasks)
     app.on_cleanup.append(cleanup_bg_tasks)

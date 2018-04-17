@@ -1,7 +1,6 @@
 import datetime
 import xml.etree.ElementTree as xml
 from enum import Enum
-from io import StringIO
 from typing import NamedTuple
 
 from payu_fake.utils import calc_hash
@@ -59,9 +58,9 @@ class Transaction(NamedTuple):
         return self._replace(**kwargs)
 
     async def xmlify(
-            self, secret: str, _status: Status,
-            _return_code: ReturnCode, _3ds: bool = False,
-            _3ds_url: str = '') -> str:
+        self, secret: str, _status: Status,
+        _return_code: ReturnCode, _3ds: bool = False,
+        _3ds_url: str = '') -> str:
         # O M G
         root = xml.Element('EPAYMENT')
         ref_no = xml.SubElement(root, 'REFNO')
@@ -90,16 +89,12 @@ class Transaction(NamedTuple):
         order_hash = xml.SubElement(root, 'hash')
         order_hash.text = _hash
 
-        tree = xml.ElementTree(root)
-
-        # xml_string = StringIO()
-        # tree.write(xml_string)
         return xml.tostring(root).decode()
 
     async def xmlify_inline(
-            self, secret: str, _status: Status,
-            _return_code: ReturnCode, _3ds: bool = False,
-            _3ds_url: str = '') -> str:
+        self, secret: str, _status: Status,
+        _return_code: ReturnCode, _3ds: bool = False,
+        _3ds_url: str = '') -> str:
         # O M G
         data = {
             'ORDER_REF': self.order_ref,

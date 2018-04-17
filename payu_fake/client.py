@@ -3,20 +3,20 @@ from urllib.parse import urljoin
 import requests
 from aiohttp import web
 
-from payu_fake.resources import IPN
 from payu_fake.resources import Transaction
+from payu_fake.utils import change_prefix
 
 
 async def _make_request(url: str, data: dict = None):
     if data is None:
         data = {}
-    resp = requests.post(url, data=data)
-    print(f'TC RESP <- {resp.text}')
+    return requests.post(url, data=data)
 
 
 async def post3ds(prefix: str, transaction: Transaction):
-    url = urljoin(prefix, transaction.back_ref)
-    await _make_request(url)
+    url = change_prefix(prefix, transaction.back_ref)
+    resp = await _make_request(url)
+    return resp.content.decode(), resp.ok
 
 
 async def ipn(transaction: Transaction, app: web.Application):

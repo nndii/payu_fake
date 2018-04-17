@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import secrets
 import typing
+from urllib.parse import urlparse, urlunparse
 
 from aiohttp import web
 
@@ -37,3 +38,9 @@ def generate_id(request: web.Request) -> int:
         temp_id = secrets.randbelow(3333) + 1
         if temp_id not in request.app['t_db']:
             return temp_id
+
+
+def change_prefix(prefix: str, url: str) -> str:
+    source_url = list(urlparse(url))
+    source_url[1] = urlparse(prefix)[1]
+    return urlunparse(source_url)

@@ -48,18 +48,18 @@ async def process_alu(request: web.Request) -> \
     )
 
     request.app['t_db'][transaction.order_ref] = transaction
-    _3ds = True if transaction.cc_owner.endswith('33') else False
+    _3ds, _idn = map(int, transaction.cc_owner.split(':'))
 
     if _3ds:
         response = await transaction.xmlify(
             secret, Status.success, ReturnCode.need3ds,
-            _3ds=True, _3ds_url=request.app['3ds_url']
+            _3ds=True, _3ds_url='http://nettakogosaita.tochno'
         )
         request.app['3ds'].put(transaction)
         print(f'ALU -> {response}')
         return response, Status.success, ReturnCode.need3ds
     else:
-        if params.get('EXP_YEAR') != '2023':
+        if not _idn:
             status, return_code = Status.success, ReturnCode.success
         else:
             status, return_code = Status.success, ReturnCode.authorized
@@ -72,7 +72,10 @@ async def process_alu(request: web.Request) -> \
 
 
 async def process_3ds(app: web.Application, transaction: Transaction):
-    await post3ds(app['TC_PREFIX'], transaction)
+    response_body, status = await post3ds(app['TC_PREFIX'], transaction)
+    if status:
+        payment_id = transaction.order_ref.split(':')[-1]
+        app['finish'][payment_id] = response_body
     app['ipn'].put(transaction.replace(status=IPN.finish))
 
 
