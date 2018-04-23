@@ -12,11 +12,8 @@ async def process_alu(request: web.Request) -> \
         typing.Tuple[typing.Union[str, None], Status, ReturnCode]:
     params = await request.post()
     secret = request.app['SECRET']
-    print(f'ALU <-\n{params}')
     ref_id = generate_id(request)
     if not await check_hmac(params, secret):
-        print(f'HMAC SECRET {secret}')
-        print(f'ALU ->\nHMAC ERROR')
         return None, Status.error, ReturnCode.some_error
 
     transaction = Transaction(
@@ -56,7 +53,6 @@ async def process_alu(request: web.Request) -> \
             _3ds=True, _3ds_url='http://nettakogosaita.tochno'
         )
         request.app['3ds'].put(transaction)
-        print(f'ALU -> {response}')
         return response, Status.success, ReturnCode.need3ds
     else:
         if not _idn:
@@ -67,7 +63,6 @@ async def process_alu(request: web.Request) -> \
         response = await transaction.xmlify(
             secret, status, return_code
         )
-        print(f'ALU -> {response}')
         return response, status, return_code
 
 
@@ -88,10 +83,7 @@ async def process_idn(request: web.Request) -> \
 
     params = await request.post()
     secret = request.app['SECRET']
-    print(f'IDN <-\n{params}')
     if not await check_hmac(params, secret):
-        print(f'HMAC SECRET {secret}')
-        print(f'IDN ->\nHMAC ERROR')
         return None, Status.error, ReturnCode.some_error
 
     try:
@@ -102,7 +94,6 @@ async def process_idn(request: web.Request) -> \
     response = await transaction.xmlify_inline(
         secret, Status.success, ReturnCode.success
     )
-    print(f'IDN -> {response}')
     request.app['ipn'].put(transaction.replace(status=IPN.finish))
     return response, Status.success, ReturnCode.success
 

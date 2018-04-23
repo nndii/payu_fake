@@ -33,5 +33,4 @@ async def ipn(transaction: Transaction, app: web.Application):
         'IPN_PNAME[]': 'ticket',
         'IPN_DATE': '1231231245'
     }
-    print(f'IPN -> {data}')
     await _make_request(url, data=data)

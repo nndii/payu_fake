@@ -10,14 +10,11 @@ from aiohttp import web
 async def check_hmac(params: typing.Mapping, secret: str) -> bool:
     hash_source = params['ORDER_HASH']
     hash_calc = await calc_hash(params, secret)
-    print(f'HASH SOURCE {hash_source}')
-    print(f'HASH CALC {hash_calc}')
     return hash_source == hash_calc
 
 
 async def calc_hash(data: typing.Mapping, secret: str) -> str:
     sorted_keys = sorted((key for key in data.keys() if key != 'ORDER_HASH'))
-    print(f'HASH SORTED KEYS {sorted_keys}')
 
     body = ''
     for key in sorted_keys:
